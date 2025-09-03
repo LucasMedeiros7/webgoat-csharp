@@ -1,53 +1,63 @@
-# Name of this GitHub Actions workflow.
-name: Semgrep
+# .github/workflows/semgrep-csharp.yml
+name: Semgrep (C#) — Community
 
 on:
-  # Scan changed files in PRs (diff-aware scanning):
-  pull_request: {}
-  # Scan on-demand through GitHub Actions interface:
-  workflow_dispatch: {}
-  # Scan mainline branches and report all findings:
+  pull_request:
+    branches: [ "**" ]
   push:
-    branches: ["master", "main"]
+    branches: [ "main", "master" ]
+  workflow_dispatch: {}
 
 jobs:
   semgrep_scan:
-    # User definable name of this GitHub Actions job.
     name: semgrep/ci
-    # If you are self-hosting, change the following `runs-on` value:
     runs-on: ubuntu-latest
-    container:
-      # A Docker image with Semgrep installed. Do not change this.
-      image: semgrep/semgrep
+
+    # Você pode manter container: semgrep/semgrep, mas em geral
+    # no Ubuntu-latest é mais estável usar o binário do próprio action.
+    # Se preferir container, descomente abaixo:
+    # container:
+    #   image: semgrep/semgrep:latest
+
     permissions:
-      # required for all workflows
-      security-events: write
-      # only required for workflows in private repositories
-      actions: read
+      security-events: write   # obrigatório para publicar SARIF
       contents: read
+      actions: read
+      pull-requests: write     # melhora anotações em PR
 
     steps:
-      # Fetch project source with GitHub Actions Checkout.
-      - name: Checkout repository
-        uses: actions/checkout@v3
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # annotations mais precisas no PR
 
-      - name: Perform Semgrep Analysis
-      # @NOTE: This is the actual semgrep command to scan your code.
-      # Modify the --config option to 'r/all' to scan using all rules,
-      # or use multiple flags to specify particular rules, such as
-      # --config r/all --config custom/rules
-        run: semgrep scan -q --sarif --config auto . > semgrep-results.sarif
+      # Opção A: usar CLI via Docker (100% community)
+      - name: Run Semgrep (C# + Secrets)
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}:/src" \
+            --workdir /src \
+            semgrep/semgrep:latest \
+            semgrep scan \
+              --config p/csharp \
+              --config p/secrets \
+              --exclude-dir bin \
+              --exclude-dir obj \
+              --exclude-dir .git \
+              --sarif --output semgrep-results.sarif
+        # Se quiser apenas reportar (sem quebrar o job ao encontrar findings), ative:
+        # continue-on-error: true
 
-      # upload the results for the CodeQL GitHub app to annotate the code
-      - name: Save SARIF results as artifact
-        uses: actions/upload-artifact@v3
+      - name: Upload SARIF to Advanced Security
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: semgrep-results.sarif
+          category: semgrep-csharp
+        if: always()
+
+      - name: Save SARIF as artifact (opcional)
+        uses: actions/upload-artifact@v4
         with:
           name: semgrep-scan-results
           path: semgrep-results.sarif
-
-      # Upload SARIF file generated in previous step
-      - name: Upload SARIF result to the GitHub Security Dashboard
-        uses: github/codeql-action/upload-sarif@v2
-        with:
-          sarif_file: semgrep-results.sarif
         if: always()
