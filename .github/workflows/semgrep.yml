@@ -13,25 +13,18 @@ jobs:
     name: semgrep/ci
     runs-on: ubuntu-latest
 
-    # Você pode manter container: semgrep/semgrep, mas em geral
-    # no Ubuntu-latest é mais estável usar o binário do próprio action.
-    # Se preferir container, descomente abaixo:
-    # container:
-    #   image: semgrep/semgrep:latest
-
     permissions:
-      security-events: write   # obrigatório para publicar SARIF
+      security-events: write
       contents: read
       actions: read
-      pull-requests: write     # melhora anotações em PR
+      pull-requests: write
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # annotations mais precisas no PR
+          fetch-depth: 0
 
-      # Opção A: usar CLI via Docker (100% community)
       - name: Run Semgrep (C# + Secrets)
         run: |
           docker run --rm \
@@ -39,25 +32,15 @@ jobs:
             --workdir /src \
             semgrep/semgrep:latest \
             semgrep scan \
-              --config p/csharp \
-              --config p/secrets \
-              --exclude-dir bin \
-              --exclude-dir obj \
-              --exclude-dir .git \
+              --config "p/csharp" \
+              --config "p/secrets" \
+              --config "p/owasp-top-ten" \
               --sarif --output semgrep-results.sarif
-        # Se quiser apenas reportar (sem quebrar o job ao encontrar findings), ative:
-        # continue-on-error: true
+        continue-on-error: true
 
       - name: Upload SARIF to Advanced Security
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: semgrep-results.sarif
           category: semgrep-csharp
-        if: always()
-
-      - name: Save SARIF as artifact (opcional)
-        uses: actions/upload-artifact@v4
-        with:
-          name: semgrep-scan-results
-          path: semgrep-results.sarif
         if: always()
