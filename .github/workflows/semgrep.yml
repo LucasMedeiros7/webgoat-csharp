@@ -32,9 +32,6 @@ jobs:
               --config p/csharp \
               --config p/secrets \
               --config p/owasp-top-10 \
-              --exclude-dir bin \
-              --exclude-dir obj \
-              --exclude-dir .git \
               --sarif --output semgrep.sarif
         # Por padrão, 'semgrep scan' retorna código != 0 se houver findings.
         # Se preferir NÃO falhar o job, use:
