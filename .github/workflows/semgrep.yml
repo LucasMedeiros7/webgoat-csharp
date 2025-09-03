@@ -1,0 +1,47 @@
+# .github/workflows/semgrep-csharp.yml
+name: Semgrep (C#) — Community
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "**" ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write   # necessário para subir o SARIF ao Code Scanning
+  actions: read
+
+jobs:
+  semgrep:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Semgrep Community via Docker (sem token)
+      - name: Run Semgrep (C# + Secrets)
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}:/src" \
+            --workdir /src \
+            semgrep/semgrep:latest \
+            semgrep scan \
+              --config p/csharp \
+              --config p/secrets \
+              --config p/owasp-top-10 \
+              --exclude-dir bin \
+              --exclude-dir obj \
+              --exclude-dir .git \
+              --sarif --output semgrep.sarif
+        # Por padrão, 'semgrep scan' retorna código != 0 se houver findings.
+        # Se preferir NÃO falhar o job, use:
+        continue-on-error: true
+
+      - name: Upload SARIF to GitHub Code Scanning
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: semgrep.sarif
+          category: semgrep-csharp
