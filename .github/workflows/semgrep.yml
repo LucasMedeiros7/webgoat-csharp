@@ -32,9 +32,7 @@ jobs:
             --workdir /src \
             semgrep/semgrep:latest \
             semgrep scan \
-              --config "p/csharp" \
-              --config "p/secrets" \
-              --config "p/owasp-top-ten" \
+              --config "p/auto" \
               --sarif --output semgrep-results.sarif
         continue-on-error: true
 
